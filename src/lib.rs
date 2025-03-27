@@ -202,47 +202,67 @@ mod tests {
     #[test]
     fn complete_enrollment() {
         println!("=====================================================");
-        println!("Enrollment Summary");
+        println!("Submitting Turbin3 Enrollment");
         println!("=====================================================");
         
         // Create a Solana devnet connection
         let rpc_client = RpcClient::new(RPC_URL);
         
-        // Use our dev wallet, which we previously transferred SOL from
-        let wallet_pubkey = read_keypair_file("dev-wallet.json")
-            .expect("Couldn't find dev wallet file")
-            .pubkey();
-        println!("Wallet Public Key: {}", wallet_pubkey);
+        // Import our dev wallet which now has 2 SOL
+        let signer = read_keypair_file("dev-wallet.json").expect("Couldn't find dev wallet file");
+        println!("Signer Public Key: {}", signer.pubkey());
+        
+        // Check our balance first
+        let balance = rpc_client
+            .get_balance(&signer.pubkey())
+            .expect("Failed to get balance");
+        println!("Current balance: {} lamports", balance);
         
         // Create a PDA for our prereq account
-        println!("Creating PDA with the following inputs:");
-        println!("  - Seed: preQ225");
-        println!("  - Public Key: {}", wallet_pubkey);
+        println!("\nCreating PDA with inputs:");
+        println!("  - Seed: prereq");
+        println!("  - Public Key: {}", signer.pubkey());
         
         let prereq = Turbin3PrereqProgram::derive_program_address(
-            &[b"preQ225", wallet_pubkey.to_bytes().as_ref()]
+            &[b"prereq", signer.pubkey().to_bytes().as_ref()]
         );
         println!("PDA derived: {}", prereq);
         
         // Print program details
-        println!("Turbin3 Program ID: {}", Turbin3PrereqProgram::id());
-        println!("Github Username: wirapratamaz");
+        println!("\nProgram Details:");
+        println!("  - Program ID: {}", Turbin3PrereqProgram::id());
+        println!("  - Github Username: wirapratamaz");
         
-        // Print what the transaction would look like
-        println!("If we had SOL in our wallet, we would create a transaction with:");
-        println!("  - Instruction: complete");
-        println!("  - Accounts:");
-        println!("    - Signer: {}", wallet_pubkey);
-        println!("    - PDA: {}", prereq);
-        println!("    - System Program: {}", system_program::id());
-        println!("  - Data: github=wirapratamaz");
+        // Define our instruction data with your github username
+        let args = CompleteArgs {
+            github: b"wirapratamaz".to_vec()
+        };
         
-        println!("=====================================================");
-        println!("Note: We previously completed the key tasks in the assignment:");
-        println!("1. Created a new keypair and saved it to dev-wallet.json");
-        println!("2. Airdropped SOL to our dev wallet (2 billion lamports)");
-        println!("3. Transferred 1 million lamports to the Turbin3 wallet");
-        println!("4. Emptied our dev wallet by sending all remaining SOL to the Turbin3 wallet");
+        // Get recent blockhash
+        println!("\nGetting recent blockhash...");
+        let blockhash = rpc_client
+            .get_latest_blockhash()
+            .expect("Failed to get recent blockhash");
+        
+        println!("Building and sending transaction...");
+        // Now we can invoke the "complete" function
+        let transaction = Turbin3PrereqProgram::complete(
+            &[&signer.pubkey(), &prereq, &system_program::id()],
+            &args,
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash
+        );
+        
+        // Send the transaction
+        let signature = rpc_client
+            .send_and_confirm_transaction(&transaction)
+            .expect("Failed to send transaction");
+        
+        // Print our transaction out
+        println!("\nSuccess! 🎉");
+        println!("Your enrollment is now recorded on-chain!");
+        println!("Transaction: https://explorer.solana.com/tx/{}/?cluster=devnet", signature);
         println!("=====================================================");
     }
     
@@ -280,7 +300,7 @@ mod tests {
             
         println!("Balance: {} lamports", balance);
     }
-    
+
     #[test]
     fn fund_enrollment_wallet() {
         // Import our enrollment keypair
