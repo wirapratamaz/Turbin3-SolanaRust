@@ -205,14 +205,14 @@ mod tests {
         let rpc_client = RpcClient::new(RPC_URL);
         
         // Let's define our accounts
-        let signer = read_keypair_file("Turbin3-wallet.json").expect("Couldn't find Turbin3 wallet file");
+        let signer = read_keypair_file("Turbin3_wallet.json").expect("Couldn't find Turbin3 wallet file");
         
         // Create a PDA for our prereq account
         let prereq = Turbin3PrereqProgram::derive_program_address(&[b"preQ225", signer.pubkey().to_bytes().as_ref()]);
         
         // Define our instruction data
         let args = CompleteArgs {
-            github: b"wirapratama".to_vec()
+            github: b"wirapratamaz".to_vec()
         };
         
         // Get recent blockhash
@@ -220,7 +220,6 @@ mod tests {
             .get_latest_blockhash()
             .expect("Failed to get recent blockhash");
             
-        // Now we can invoke the "complete" function
         let transaction = Turbin3PrereqProgram::complete(
             &[&signer.pubkey(), &prereq, &system_program::id()],
             &args,
@@ -234,7 +233,24 @@ mod tests {
             .send_and_confirm_transaction(&transaction)
             .expect("Failed to send transaction");
             
-        // Print our transaction out
         println!("Success! Check out your enrollment TX here: https://explorer.solana.com/tx/{}/?cluster=devnet", signature);
+    }
+    
+    #[test]
+    fn fund_turbin3_wallet() {
+        // Import our Turbin3 keypair
+        let keypair = read_keypair_file("Turbin3_wallet.json").expect("Couldn't find wallet file");
+        
+        // Connected to Solana Devnet RPC Client
+        let client = RpcClient::new(RPC_URL);
+        
+        // We're going to claim devnet SOL tokens
+        match client.request_airdrop(&keypair.pubkey(), 2_000_000_000u64) {
+            Ok(s) => {
+                println!("Success! Check out your TX here:");
+                println!("https://explorer.solana.com/tx/{}?cluster=devnet", s.to_string());
+            },
+            Err(e) => println!("Oops, something went wrong: {}", e.to_string())
+        };
     }
 }
